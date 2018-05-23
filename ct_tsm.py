@@ -79,4 +79,10 @@ if args.restore:
 
 if args.remove:
     logging.debug('Removing fid %s', args.fid)
-    # TODO
+    fid_path = fid2lupath(args.lustre_root, args.fid)
+    file_uuid = xattr.getxattr(fid_path, 'trusted.lhsm.uuid')
+    logging.debug('UUID: %s', file_uuid.decode())
+
+    tsm_client.delete(filespace='project',
+                      highlevel='by-uuid',
+                      lowlevel=file_uuid.decode())
