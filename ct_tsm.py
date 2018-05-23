@@ -1,9 +1,18 @@
+#!/usr/bin/python
 import argparse
 import logging
 import xattr
 import uuid
 import tsm.client
 import sys
+
+"""
+Use the Python TSM library from bbrauns/tsm-api-client
+https://github.com/bbrauns/tsm-api-client
+
+Each file is assigned a UUID and this reference is used to put the object
+in the TSM backend.
+"""
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -23,11 +32,13 @@ args = parser.parse_args()
 
 tsm_client = tsm.client.TSMApiClient()
 
+
 def fid2lupath(lustre_root, fid):
     return "{lustre_root}/.lustre/fid/{fid}".format(
         lustre_root=args.lustre_root,
         fid=args.fid.strip('[]'),
     )
+
 
 if args.archive:
     if args.fd is None:
@@ -48,9 +59,9 @@ if args.archive:
         file_uuid = new_uuid
 
     tsm_client.archive(filename="/proc/self/fd/{fd}".format(fd=args.fd),
-    filespace='project',
-    highlevel='by-uuid',
-    lowlevel=file_uuid.decode())
+                       filespace='project',
+                       highlevel='by-uuid',
+                       lowlevel=file_uuid.decode())
 
 if args.restore:
     if args.fd is None:
@@ -62,9 +73,9 @@ if args.restore:
     logging.debug('UUID: %s', file_uuid.decode())
 
     tsm_client.retrieve(dest_file="/proc/self/fd/{fd}".format(fd=args.fd),
-                    filespace='project',
-                    highlevel='by-uuid',
-                    lowlevel=file_uuid.decode())
+                        filespace='project',
+                        highlevel='by-uuid',
+                        lowlevel=file_uuid.decode())
 
 if args.remove:
     logging.debug('Removing fid %s', args.fid)
