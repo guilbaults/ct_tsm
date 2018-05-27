@@ -6,5 +6,6 @@ python:
 fail_fast: true
 before_install:
     - pip install pycodestyle
-after_script:
-- pycodestyle
+install: "pip install -r requirements.txt"
+script:
+    - pycodestyle ct_tsm.py
