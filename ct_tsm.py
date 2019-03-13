@@ -5,6 +5,8 @@ import xattr
 import uuid
 import tsm.client
 import sys
+import time
+import os.path
 
 """
 Use the Python TSM library from bbrauns/tsm-api-client
@@ -16,10 +18,18 @@ in the TSM backend.
 
 logging.basicConfig(level=logging.DEBUG)
 
+# Overwrite the default log level for TSM client. It is very verbose and
+# causes problems with systemd as this is all STDOUT
+tsmlogger = logging.getLogger('tsm.client')
+tsmlogger.propagate = False
+tsmlogger.setLevel(logging.DEBUG)
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--fd', type=int)
 parser.add_argument('--fid', required=True)
 parser.add_argument("--lustre-root", required=True)
+parser.add_argument("--fsname=project")
 
 group_action = parser.add_mutually_exclusive_group(required=True)
 group_action.add_argument('--archive', action='store_true')
@@ -40,13 +50,24 @@ def fid2lupath(lustre_root, fid):
     )
 
 
+def logstatus(action, status, time, fid, size=0):
+    logging.info(
+        'type=stats fid={0} action={1} status={2} runtime={3} size={4}'.format(
+             fid, action, status, time, size))
+
+
+start = time.time()
 if args.archive:
+    action = 'ARCHIVE'
     if args.fd is None:
         logging.error('Need a FD handle to archive a file')
         sys.exit(1)
+    if os.path.isfile("/proc/self/fd/{0}".format(args.fd)) is False:
+        logging.error('FD does not exist')
+        sys.exit(1)
 
     fid_path = fid2lupath(args.lustre_root, args.fid)
-    logging.debug('Archiving fid %s, with fid_path %s', args.fid, fid_path)
+    logging.info('Archiving fid %s, with fid_path %s', args.fid, fid_path)
 
     if 'trusted.lhsm.uuid' in xattr.listxattr(fid_path):
         # Get the previous UUID
@@ -57,32 +78,65 @@ if args.archive:
         logging.debug('Assigning uuid %s', new_uuid)
         xattr.setxattr(fid_path, 'trusted.lhsm.uuid', new_uuid)
         file_uuid = new_uuid
-
-    tsm_client.archive(filename="/proc/self/fd/{fd}".format(fd=args.fd),
-                       filespace='project',
-                       highlevel='by-uuid',
-                       lowlevel=file_uuid.decode())
+    try:
+        logging.debug('Starting Archival call: tsm_client.archive')
+        tsm_client.archive(filename="/proc/self/fd/{fd}".format(fd=args.fd),
+                           filespace=args.fsname,
+                           highlevel='by-uuid',
+                           lowlevel=file_uuid.decode())
+        logging.info('Archive complete for {}'.format(args.fid))
+        status = 'SUCCESS'
+    except Exception as e:
+        status = 'FAILURE'
+        logging.error(e)
+    finally:
+        tsm_client.close()
 
 if args.restore:
+    action = 'RESTORE'
     if args.fd is None:
         logging.error('Need a FD handle to restore a file')
         sys.exit(1)
     fid_path = fid2lupath(args.lustre_root, args.fid)
-    logging.debug('Restoring fid %s, with fid_path %s', args.fid, fid_path)
+    logging.info('Started restore of fid %s, with fid_path %s',
+                 args.fid, fid_path)
     file_uuid = xattr.getxattr(fid_path, 'trusted.lhsm.uuid')
     logging.debug('UUID: %s', file_uuid.decode())
 
-    tsm_client.retrieve(dest_file="/proc/self/fd/{fd}".format(fd=args.fd),
-                        filespace='project',
-                        highlevel='by-uuid',
-                        lowlevel=file_uuid.decode())
+    try:
+        tsm_client.connect()
+        tsm_client.retrieve(dest_file="/proc/self/fd/{fd}".format(fd=args.fd),
+                            filespace=args.fsname,
+                            highlevel='by-uuid',
+                            lowlevel=file_uuid.decode())
+        logging.info('Retreival of fid {} from TSM completed'.format(args.fid))
+        status = 'SUCCESS'
+    except Exception as e:
+        status = 'FAILURE'
+        logging.error(e)
+    finally:
+        tsm_client.close()
 
 if args.remove:
-    logging.debug('Removing fid %s', args.fid)
+    action = 'REMOVE'
+    logging.info('Started removal of fid {} from TSM'.format(args.fid))
     fid_path = fid2lupath(args.lustre_root, args.fid)
     file_uuid = xattr.getxattr(fid_path, 'trusted.lhsm.uuid')
     logging.debug('UUID: %s', file_uuid.decode())
+    try:
+        tsm_client.connect()
+        tsm_client.delete(filespace=args.fsname,
+                          highlevel='by-uuid',
+                          lowlevel=file_uuid.decode())
+        logging.info('Deletion of fid {} from TSM completed'.format(args.fid))
+        status = 'SUCCESS'
+    except Exception as e:
+        logging.error(e)
+        status = 'FAILURE'
+    finally:
+        tsm_client.close()
 
-    tsm_client.delete(filespace='project',
-                      highlevel='by-uuid',
-                      lowlevel=file_uuid.decode())
+runtime = round(time.time() - start)
+logstatus(action, status, runtime, args.fid)
+if status != 'SUCCESS':
+    sys.exit(1)
