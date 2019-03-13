@@ -29,12 +29,17 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--fd', type=int)
 parser.add_argument('--fid', required=True)
 parser.add_argument("--lustre-root", required=True)
-parser.add_argument("--fsname=project")
+parser.add_argument("--filespace", default='project', type=str,
+                    help="TSM filespace where the archived file is stored, \
+should be similair to the Lustre filesystem name")
 
 group_action = parser.add_mutually_exclusive_group(required=True)
-group_action.add_argument('--archive', action='store_true')
-group_action.add_argument('--restore', action='store_true')
-group_action.add_argument('--remove', action='store_true')
+group_action.add_argument('--archive', action='store_true',
+                          help="Send this file to TSM")
+group_action.add_argument('--restore', action='store_true',
+                          help="Retrieve the content from TSM")
+group_action.add_argument('--remove', action='store_true',
+                          help="Delete this file from TSM")
 
 parser.add_argument('--verbose', '-v', action='count')
 
@@ -81,7 +86,7 @@ if args.archive:
     try:
         logging.debug('Starting Archival call: tsm_client.archive')
         tsm_client.archive(filename="/proc/self/fd/{fd}".format(fd=args.fd),
-                           filespace=args.fsname,
+                           filespace=args.filespace,
                            highlevel='by-uuid',
                            lowlevel=file_uuid.decode())
         logging.info('Archive complete for {}'.format(args.fid))
@@ -106,7 +111,7 @@ if args.restore:
     try:
         tsm_client.connect()
         tsm_client.retrieve(dest_file="/proc/self/fd/{fd}".format(fd=args.fd),
-                            filespace=args.fsname,
+                            filespace=args.filespace,
                             highlevel='by-uuid',
                             lowlevel=file_uuid.decode())
         logging.info('Retreival of fid {} from TSM completed'.format(args.fid))
@@ -125,7 +130,7 @@ if args.remove:
     logging.debug('UUID: %s', file_uuid.decode())
     try:
         tsm_client.connect()
-        tsm_client.delete(filespace=args.fsname,
+        tsm_client.delete(filespace=args.filespace,
                           highlevel='by-uuid',
                           lowlevel=file_uuid.decode())
         logging.info('Deletion of fid {} from TSM completed'.format(args.fid))
