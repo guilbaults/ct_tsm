@@ -144,9 +144,9 @@ if args.remove:
             config.get('database', 'password'),
             config.get('database', 'db'))
         cursor = db.cursor()
-        cursor.execute("SELECT lhsm_uuid FROM SOFT_RM WHERE id=\"{fid}\"".format(
-            fid=args.fid,
-        ))
+        cursor.execute(
+            "SELECT lhsm_uuid FROM SOFT_RM WHERE id=\"{fid}\"".format(
+                fid=args.fid))
         file_uuid = cursor.fetchone()[0]
 
     logging.debug('UUID: %s', file_uuid.decode())
