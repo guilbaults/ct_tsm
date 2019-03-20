@@ -144,9 +144,10 @@ if args.remove:
             config.get('database', 'password'),
             config.get('database', 'db'))
         cursor = db.cursor()
-        cursor.execute(
-            "SELECT lhsm_uuid FROM SOFT_RM WHERE id=\"{fid}\"".format(
-                fid=args.fid))
+        query = "SELECT lhsm_uuid FROM SOFT_RM_DELAYED \
+WHERE id=\"{fid}\"".format(
+            fid=args.fid.strip("[]"))
+        cursor.execute(query)
         file_uuid = cursor.fetchone()[0]
 
     logging.debug('UUID: %s', file_uuid.decode())
