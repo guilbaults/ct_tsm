@@ -7,6 +7,8 @@ import tsm.client
 import sys
 import time
 import os.path
+import configparser
+import pymysql
 
 """
 Use the Python TSM library from bbrauns/tsm-api-client
@@ -32,6 +34,9 @@ parser.add_argument("--lustre-root", required=True)
 parser.add_argument("--filespace", default='project', type=str,
                     help="TSM filespace where the archived file is stored, \
 should be similair to the Lustre filesystem name")
+parser.add_argument("--config", default='/etc/lhsm_cmd.conf', type=str,
+                    help="Config file, required to get the information in \
+the database of robinhood to remove with uuid")
 
 group_action = parser.add_mutually_exclusive_group(required=True)
 group_action.add_argument('--archive', action='store_true',
@@ -126,7 +131,24 @@ if args.remove:
     action = 'REMOVE'
     logging.info('Started removal of fid {} from TSM'.format(args.fid))
     fid_path = fid2lupath(args.lustre_root, args.fid)
-    file_uuid = xattr.getxattr(fid_path, 'trusted.lhsm.uuid')
+    try:
+        file_uuid = xattr.getxattr(fid_path, 'trusted.lhsm.uuid')
+    except IOError:
+        # File does not exist, we need to check in robinhood to get the UUID
+        # in the SOFT_RM table
+        config = configparser.ConfigParser()
+        config.read(args.config)
+        db = pymysql.connect(
+            config.get('database', 'host'),
+            config.get('database', 'user'),
+            config.get('database', 'password'),
+            config.get('database', 'db'))
+        cursor = db.cursor()
+        cursor.execute("SELECT lhsm_uuid FROM SOFT_RM WHERE id=\"{fid}\"".format(
+            fid=args.fid,
+        ))
+        file_uuid = cursor.fetchone()[0]
+
     logging.debug('UUID: %s', file_uuid.decode())
     try:
         tsm_client.connect()
