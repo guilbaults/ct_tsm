@@ -22,6 +22,15 @@ This example is using a python virtualenv to run the correct Python version on C
 archive = /root/env/bin/python3.6 /root/ct_tsm.py --archive --fd={fd} --fid={fid} --lustre-root=/project
 restore = /root/env/bin/python3.6 /root/ct_tsm.py --restore --fd={fd} --fid={fid} --lustre-root=/project
 remove = /root/env/bin/python3.6 /root/ct_tsm.py --remove --fid={fid} --lustre-root=/project
+
+[database]
+host = rbh-mysql
+user = rbh-lustre
+password = CHANGEME
+db = rbh-lustre
 ```
 
 Run `lhsmtool_cmd` and send HSM requests with the various `lfs hsm_*` commands.
+
+## Robinhood database access
+This tool will also check in the robinhood SOFT_RM databse to grab the UUID of a deleted file. This is required to support the lhsm_remove of robinhood to clean the tape backend after a file was deleted from lustre.
