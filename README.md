@@ -12,6 +12,7 @@ A new file is assigned a UUID on the first archive command and is stored in the 
 * Python >= 3.5
  * TSM API module
  *  `xattr` module
+ *  `PyMySQL` module
 
 ## Usage
 
@@ -22,6 +23,17 @@ This example is using a python virtualenv to run the correct Python version on C
 archive = /root/env/bin/python3.6 /root/ct_tsm.py --archive --fd={fd} --fid={fid} --lustre-root=/project
 restore = /root/env/bin/python3.6 /root/ct_tsm.py --restore --fd={fd} --fid={fid} --lustre-root=/project
 remove = /root/env/bin/python3.6 /root/ct_tsm.py --remove --fid={fid} --lustre-root=/project
+
+[database]
+host = rbh-mysql
+user = rbh-lustre
+password = CHANGEME
+db = rbh-lustre
 ```
 
 Run `lhsmtool_cmd` and send HSM requests with the various `lfs hsm_*` commands.
+
+## Robinhood database access
+This tool will also check in the robinhood SOFT_RM_DELAYED table to grab the UUID of a deleted file. This is required to support the lhsm_remove policy of robinhood to clean the tape backend after a file was deleted from lustre.
+
+The SOFT_RM_DELAYED table and its associated trigger need to be created manually using the content of `soft_rm_delayed.sql`. The content of that table is not currently cleaned automatically.
