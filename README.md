@@ -26,6 +26,7 @@ remove = /root/env/bin/python3.6 /root/ct_tsm.py --remove --fid={fid} --lustre-r
 
 [database]
 host = rbh-mysql
+port = 3306
 user = rbh-lustre
 password = CHANGEME
 db = rbh-lustre
