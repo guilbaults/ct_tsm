@@ -18,7 +18,8 @@ Each file is assigned a UUID and this reference is used to put the object
 in the TSM backend.
 """
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG,
+                    filename='/var/log/ct_tsm.log')
 
 # Overwrite the default log level for TSM client. It is very verbose and
 # causes problems with systemd as this is all STDOUT
@@ -139,10 +140,11 @@ if args.remove:
         config = configparser.ConfigParser()
         config.read(args.config)
         db = pymysql.connect(
-            config.get('database', 'host'),
-            config.get('database', 'user'),
-            config.get('database', 'password'),
-            config.get('database', 'db'))
+            host=config.get('database', 'host'),
+            port=int(config.get('database', 'port')),
+            user=config.get('database', 'user'),
+            password=config.get('database', 'password'),
+            db=config.get('database', 'db'))
         cursor = db.cursor()
         query = "SELECT lhsm_uuid FROM SOFT_RM_DELAYED \
 WHERE id=\"{fid}\"".format(
